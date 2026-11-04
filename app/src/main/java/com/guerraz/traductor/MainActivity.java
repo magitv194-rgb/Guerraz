@@ -141,7 +141,7 @@ public class MainActivity extends Activity {
         if(!partial && !s.equals(lastFinal)) {lastFinal=s; translate(s);}
     }
     private void translate(String s) {
-        String from=sourceCode(); if(from.equals("auto")) from=Locale.getDefault().getLanguage();
+        String selectedFrom=sourceCode(); final String from=selectedFrom.equals("auto") ? Locale.getDefault().getLanguage() : selectedFrom;
         String to=codes[target.getSelectedItemPosition()+1];
         status.setText("Traduciendo…");
         new Thread(() -> {
