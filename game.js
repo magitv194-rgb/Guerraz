@@ -5,7 +5,7 @@ const KEY="guerraZ.web.campaign.v1";
 const names={money:"Dinero",food:"Comida",oil:"Petróleo",metal:"Metal",ammo:"Munición"};
 const defaults={money:1250,food:850,oil:620,metal:700,ammo:420};
 const costs={
-"Cuartel":{money:180,metal:80,minutes:3},"Fábrica":{money:260,metal:150,minutes:5},
+"Cuartel":{money:180,metal:80,minutes:1},"Fábrica":{money:260,metal:150,minutes:1},
 "Granja":{money:150,metal:45,minutes:3},"Refinería":{money:220,metal:130,minutes:5},
 "Depósito":{money:170,metal:100,minutes:4},"Fortificación":{money:200,metal:160,minutes:4}
 };
