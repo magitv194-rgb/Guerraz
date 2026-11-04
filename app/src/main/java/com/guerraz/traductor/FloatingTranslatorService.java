@@ -32,8 +32,8 @@ public class FloatingTranslatorService extends Service {
     @Override public void onCreate() {
         super.onCreate();
         createNotificationChannel();
-        Notification n = new Notification.Builder(this, CHANNEL)
-            .setContentTitle("Traductor flotante activo")
+        Notification.Builder nb = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, CHANNEL) : new Notification.Builder(this);
+        Notification n = nb.setContentTitle("Traductor flotante activo")
             .setContentText("Escuchando audio para mostrar subtítulos traducidos")
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setOngoing(true).build();
