@@ -58,7 +58,7 @@ public class MainActivity extends Activity {
         source = new Spinner(this); source.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, labels)); root.addView(source);
         root.addView(text("IDIOMA DE SALIDA",12,0xFF9BAAC2,true));
         String[] targetLabels = Arrays.copyOfRange(labels,1,labels.length);
-        target = new Spinner(this); target.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item,targetLabels)); target.setSelection(11); root.addView(target);
+        target = new Spinner(this); target.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item,targetLabels)); target.setSelection(12); root.addView(target);
         LinearLayout buttons = new LinearLayout(this); buttons.setOrientation(0); buttons.setPadding(0,18,0,16);
         start = new Button(this); start.setText("🎙 INICIAR"); start.setAllCaps(false);
         stop = new Button(this); stop.setText("DETENER"); stop.setAllCaps(false); stop.setEnabled(false);
