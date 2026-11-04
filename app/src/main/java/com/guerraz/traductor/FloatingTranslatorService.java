@@ -76,8 +76,8 @@ public class FloatingTranslatorService extends Service {
         state = label("Conectando al micrófono…",11,false); state.setTextColor(0xFFB8C5D8); card.addView(state);
         caption = label("Los subtítulos aparecerán aquí…",textSize,true);
         caption.setPadding(2,8,2,4); caption.setMaxLines(8); card.addView(caption);
-        smaller.setOnClickListener(v -> {textSize=Math.max(12,textSize-2); caption.setTextSize(textSize);});
-        larger.setOnClickListener(v -> {textSize=Math.min(40,textSize+2); caption.setTextSize(textSize);});
+        smaller.setOnClickListener(v -> {textSize=Math.max(12,textSize-2); caption.setTextSize(textSize); windowWidth=Math.max(220,windowWidth-36); params.width=windowWidth; try{wm.updateViewLayout(overlay,params);}catch(Exception ignored){} });
+        larger.setOnClickListener(v -> {textSize=Math.min(40,textSize+2); caption.setTextSize(textSize); windowWidth=Math.min(getResources().getDisplayMetrics().widthPixels,windowWidth+36); params.width=windowWidth; try{wm.updateViewLayout(overlay,params);}catch(Exception ignored){} });
         close.setOnClickListener(v -> stopSelf());
         title.setOnTouchListener(new View.OnTouchListener() {
             int sx,sy,ox,oy;
