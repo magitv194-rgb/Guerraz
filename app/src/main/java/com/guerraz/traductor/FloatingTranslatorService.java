@@ -71,14 +71,15 @@ public class FloatingTranslatorService extends Service {
         card.setPadding(14,10,14,12); card.setBackground(shape(0xEE111827,18));
         LinearLayout bar = new LinearLayout(this); bar.setGravity(Gravity.CENTER_VERTICAL);
         TextView title = label("TRADUCTOR · ES",12,true); title.setPadding(2,4,10,4);
-        TextView smaller = control("−"), larger = control("+"), close = control("×");
+        TextView smaller = control("−"), larger = control("+"), stop = control("DETENER"), close = control("×");
         bar.addView(title,new LinearLayout.LayoutParams(0,-2,1));
-        bar.addView(smaller); bar.addView(larger); bar.addView(close); card.addView(bar);
+        bar.addView(smaller); bar.addView(larger); bar.addView(stop); bar.addView(close); card.addView(bar);
         state = label("Conectando al micrófono…",11,false); state.setTextColor(0xFFB8C5D8); card.addView(state);
         caption = label("Los subtítulos aparecerán aquí…",textSize,true);
         caption.setPadding(2,8,2,4); caption.setMaxLines(8); card.addView(caption);
         smaller.setOnClickListener(v -> {textSize=Math.max(12,textSize-2); caption.setTextSize(textSize); windowWidth=Math.max(220,windowWidth-36); params.width=windowWidth; try{wm.updateViewLayout(overlay,params);}catch(Exception ignored){} });
         larger.setOnClickListener(v -> {textSize=Math.min(40,textSize+2); caption.setTextSize(textSize); windowWidth=Math.min(getResources().getDisplayMetrics().widthPixels,windowWidth+36); params.width=windowWidth; try{wm.updateViewLayout(overlay,params);}catch(Exception ignored){} });
+        stop.setOnClickListener(v -> { stopRecognition(); update("Escucha detenida · pulsa INICIAR en la app para reanudar"); });
         close.setOnClickListener(v -> stopSelf());
         title.setOnTouchListener(new View.OnTouchListener() {
             int sx,sy,ox,oy;
@@ -98,8 +99,13 @@ public class FloatingTranslatorService extends Service {
         try {wm.addView(overlay,params);} catch(Exception e){overlay=null;stopSelf();}
     }
     private TextView control(String s) {
-        TextView t=label(s,20,true); t.setGravity(Gravity.CENTER); t.setBackground(shape(0xFF334155,24));
-        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(38,36); p.setMargins(3,0,3,0); t.setLayoutParams(p); return t;
+        TextView t=label(s, s.equals("DETENER") ? 13 : 26,true); t.setGravity(Gravity.CENTER); t.setBackground(shape(0xFF334155,24));
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(s.equals("DETENER") ? 82 : 52,48); p.setMargins(3,0,3,0); t.setLayoutParams(p); return t;
+    }
+    private void stopRecognition() {
+        running=false;
+        if(partialTranslation!=null) handler.removeCallbacks(partialTranslation);
+        if(recognizer!=null){try{recognizer.cancel();}catch(Exception ignored){}}
     }
     private void startRecognition() {
         if (!SpeechRecognizer.isRecognitionAvailable(this)) { update("No hay servicio de reconocimiento de voz instalado."); return; }
