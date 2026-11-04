@@ -15,7 +15,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 const canvas=document.getElementById("provinceMap"),ctx=canvas.getContext("2d");
 const API="https://apis.datos.gob.ar/georef/api/v2.0/provincias.geojson";
 let features=[],paths=[],extent=null,selected="Ciudad Autónoma de Buenos Aires";
-let zoom=1,offsetX=0,offsetY=0,pointer=null,dragged=false,suppressClick=false;
+let zoom=1,offsetX=0,offsetY=0,pointer=null,dragged=false,suppressClick=false;const activePointers=new Map();let pinch=null;
 const polygons=g=>!g?[]:g.type==="Polygon"?[g.coordinates]:g.type==="MultiPolygon"?g.coordinates:[];
 function visit(f,fn){polygons(f.geometry).forEach(poly=>poly.forEach(ring=>ring.forEach(fn)));}
 function getBounds(list){let a=Infinity,b=Infinity,c=-Infinity,d=-Infinity;list.forEach(f=>visit(f,([x,y])=>{a=Math.min(a,x);c=Math.max(c,x);b=Math.min(b,y);d=Math.max(d,y);}));return{minX:a,minY:b,maxX:c,maxY:d};}
@@ -28,10 +28,10 @@ ctx.restore();}
 function resize(){const r=canvas.getBoundingClientRect(),d=window.devicePixelRatio||1;canvas.width=Math.round(r.width*d);canvas.height=Math.round(r.height*d);ctx.setTransform(d,0,0,d,0,0);draw();}
 function hit(x,y){const w=canvas.clientWidth,h=canvas.clientHeight,bx=(x-w/2-offsetX)/zoom+w/2,by=(y-h/2-offsetY)/zoom+h/2;for(let i=features.length-1;i>=0;i--){if(ctx.isPointInPath(paths[i],bx,by)){const name=features[i].properties?.nombre||features[i].properties?.name;if(name)return name;}}return null;}
 function zoomAt(factor,x,y){const w=canvas.clientWidth,h=canvas.clientHeight,old=zoom,next=Math.max(1,Math.min(8,zoom*factor));const bx=(x-w/2-offsetX)/old+w/2,by=(y-h/2-offsetY)/old+h/2;zoom=next;offsetX=x-w/2-(bx-w/2)*zoom;offsetY=y-h/2-(by-h/2)*zoom;draw();}
-canvas.addEventListener("pointerdown",e=>{pointer={x:e.clientX,y:e.clientY,ox:offsetX,oy:offsetY};dragged=false;canvas.setPointerCapture(e.pointerId);});
-canvas.addEventListener("pointermove",e=>{if(!pointer)return;const dx=e.clientX-pointer.x,dy=e.clientY-pointer.y;if(Math.abs(dx)+Math.abs(dy)>5)dragged=true;if(dragged){offsetX=pointer.ox+dx;offsetY=pointer.oy+dy;draw();}});
-canvas.addEventListener("pointerup",e=>{if(pointer&&dragged)suppressClick=true;pointer=null;});
-canvas.addEventListener("pointercancel",()=>pointer=null);
+canvas.addEventListener("pointerdown",e=>{canvas.setPointerCapture(e.pointerId);activePointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(activePointers.size===1){pointer={x:e.clientX,y:e.clientY,ox:offsetX,oy:offsetY};dragged=false;}else if(activePointers.size===2){const pts=[...activePointers.values()],dx=pts[1].x-pts[0].x,dy=pts[1].y-pts[0].y,r=canvas.getBoundingClientRect(),mx=(pts[0].x+pts[1].x)/2-r.left,my=(pts[0].y+pts[1].y)/2-r.top,w=canvas.clientWidth,h=canvas.clientHeight;pinch={distance:Math.hypot(dx,dy),zoom,worldX:(mx-w/2-offsetX)/zoom+w/2,worldY:(my-h/2-offsetY)/zoom+h/2};pointer=null;dragged=true;}});
+canvas.addEventListener("pointermove",e=>{if(!activePointers.has(e.pointerId))return;activePointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(activePointers.size>=2&&pinch){const pts=[...activePointers.values()],dx=pts[1].x-pts[0].x,dy=pts[1].y-pts[0].y,dist=Math.max(1,Math.hypot(dx,dy)),r=canvas.getBoundingClientRect(),mx=(pts[0].x+pts[1].x)/2-r.left,my=(pts[0].y+pts[1].y)/2-r.top,w=canvas.clientWidth,h=canvas.clientHeight;zoom=Math.max(1,Math.min(8,pinch.zoom*dist/pinch.distance));offsetX=mx-w/2-(pinch.worldX-w/2)*zoom;offsetY=my-h/2-(pinch.worldY-h/2)*zoom;draw();return;}if(!pointer)return;const dx=e.clientX-pointer.x,dy=e.clientY-pointer.y;if(Math.abs(dx)+Math.abs(dy)>5)dragged=true;if(dragged){offsetX=pointer.ox+dx;offsetY=pointer.oy+dy;draw();}});
+function endPointer(e){activePointers.delete(e.pointerId);if(activePointers.size<2)pinch=null;if(activePointers.size===0){if(dragged)suppressClick=true;pointer=null;}}
+canvas.addEventListener("pointerup",endPointer);canvas.addEventListener("pointercancel",endPointer);
 canvas.addEventListener("click",e=>{if(suppressClick){suppressClick=false;return;}const r=canvas.getBoundingClientRect(),name=hit(e.clientX-r.left,e.clientY-r.top);if(name){selected=name;draw();if(window.GuerraBridge)GuerraBridge.onProvinceSelected(name);}});
 canvas.addEventListener("wheel",e=>{e.preventDefault();const r=canvas.getBoundingClientRect();zoomAt(e.deltaY<0?1.18:1/1.18,e.clientX-r.left,e.clientY-r.top);},{passive:false});
 canvas.addEventListener("dblclick",e=>{const r=canvas.getBoundingClientRect();zoomAt(1.5,e.clientX-r.left,e.clientY-r.top);});
