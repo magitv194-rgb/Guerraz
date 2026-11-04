@@ -59,10 +59,12 @@ class MainActivity : ComponentActivity() {
 fun GuerraZ() {
     var game by remember { mutableStateOf(newGame()) }
     var tab by remember { mutableStateOf("Mapa") }
+    var clock by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
             delay(1000)
             val now = System.currentTimeMillis()
+            clock = now
             val done = game.orders.filter { it.finishAt <= now }
             if (done.isNotEmpty()) {
                 var provinces = game.provinces
@@ -110,9 +112,9 @@ fun GuerraZ() {
             }
             Text(game.message, color = Gold, fontSize = 11.sp, modifier = Modifier.padding(vertical = 7.dp))
             when (tab) {
-                "Mapa" -> MapView(game) { game = it }
+                "Mapa" -> MapView(game, clock) { game = it }
                 "Economía" -> EconomyView(game)
-                "Ejército" -> ArmyView(game) { game = it }
+                "Ejército" -> ArmyView(game, clock) { game = it }
                 else -> ResearchView(game) { game = it }
             }
         }
@@ -120,7 +122,7 @@ fun GuerraZ() {
 }
 
 @Composable
-private fun Resource(icon: String, value: Int) {
+private fun RowScope.Resource(icon: String, value: Int) {
     Surface(color = Panel, shape = RoundedCornerShape(8.dp), modifier = Modifier.weight(1f)) {
         Column(Modifier.padding(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(icon); Text(value.toString(), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
@@ -129,7 +131,7 @@ private fun Resource(icon: String, value: Int) {
 }
 
 @Composable
-private fun MapView(g: GameState, set: (GameState) -> Unit) {
+private fun MapView(g: GameState, clock: Long, set: (GameState) -> Unit) {
     val p = g.provinces.first { it.name == g.selected }
     Column(Modifier.fillMaxSize()) {
         Text("ARGENTINA · 24 PROVINCIAS", color = Color.White, fontWeight = FontWeight.Bold)
@@ -158,7 +160,7 @@ private fun MapView(g: GameState, set: (GameState) -> Unit) {
                     contentPadding = PaddingValues(2.dp)) { Text(name, fontSize = 9.sp) }
             }
         }
-        OrderList(g)
+        OrderList(g, clock)
     }
 }
 
@@ -181,7 +183,7 @@ private fun EconomyView(g: GameState) {
 }
 
 @Composable
-private fun ArmyView(g: GameState, set: (GameState) -> Unit) {
+private fun ArmyView(g: GameState, clock: Long, set: (GameState) -> Unit) {
     val p = g.provinces.first { it.name == g.selected }
     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("CENTRO DE MANDO · " + p.name, color = Gold, fontWeight = FontWeight.Bold)
@@ -193,7 +195,7 @@ private fun ArmyView(g: GameState, set: (GameState) -> Unit) {
             Text("Producir 1 tanque · 5 min · $200 + 100 metal")
         }
         Text("Movimiento de tropas y combate táctico: siguiente fase del motor.", color = Color.LightGray, fontSize = 12.sp)
-        OrderList(g)
+        OrderList(g, clock)
     }
 }
 private fun unitOrder(g: GameState, p: Province, name: String, time: Long, cost: Int, metal: Int, set: (GameState) -> Unit) {
@@ -220,11 +222,11 @@ private fun ResearchView(g: GameState, set: (GameState) -> Unit) {
 }
 
 @Composable
-private fun OrderList(g: GameState) {
+private fun OrderList(g: GameState, clock: Long) {
     if (g.orders.isNotEmpty()) {
         Text("COLA DE ÓRDENES", color = Gold, fontWeight = FontWeight.Bold, fontSize = 12.sp)
         g.orders.forEach { order ->
-            val seconds = ((order.finishAt - System.currentTimeMillis()).coerceAtLeast(0L) / 1000L)
+            val seconds = ((order.finishAt - clock).coerceAtLeast(0L) / 1000L)
             Text("⌛ " + order.item + " · " + order.province + " · " + (seconds / 60) + ":" +
                 (seconds % 60).toString().padStart(2, '0'), color = Color.White, fontSize = 11.sp)
         }
