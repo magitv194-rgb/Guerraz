@@ -2,6 +2,8 @@ package com.guerraz.traductor;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.media.projection.MediaProjectionManager;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
@@ -24,6 +26,7 @@ import java.util.*;
 
 public class MainActivity extends Activity {
     private static final int REQ_AUDIO = 41;
+    private static final int REQ_CAPTURE = 43;
     private final String[] labels = {"Automático (idioma del teléfono)","Árabe","Bengalí","Búlgaro","Catalán","Chino (simplificado)","Chino (tradicional)","Coreano","Croata","Danés","Alemán","Eslovaco","Esloveno","Español","Estonio","Finés","Francés","Griego","Hebreo","Hindi","Húngaro","Indonesio","Inglés","Italiano","Japonés","Malayo","Neerlandés","Noruego","Persa","Polaco","Portugués","Rumano","Ruso","Serbio","Sueco","Tailandés","Turco","Ucraniano","Vietnamita"};
     private final String[] codes = {"auto","ar","bn","bg","ca","zh-CN","zh-TW","ko","hr","da","de","sk","sl","es","et","fi","fr","el","he","hi","hu","id","en","it","ja","ms","nl","no","fa","pl","pt","ro","ru","sr","sv","th","tr","uk","vi"};
     private Spinner source, target;
@@ -55,15 +58,17 @@ public class MainActivity extends Activity {
         TextView title = text("Traductor de voz",28,Color.WHITE,true); root.addView(title);
         TextView sub = text("Habla y obtén la traducción al instante",14,0xFFB7C2D5,false); sub.setPadding(0,6,0,22); root.addView(sub);
         root.addView(text("IDIOMA DE ENTRADA",12,0xFF9BAAC2,true));
-        source = new Spinner(this); source.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, labels)); root.addView(source);
+        source = new Spinner(this); source.setAdapter(new WhiteSpinnerAdapter(labels)); root.addView(source);
         root.addView(text("IDIOMA DE SALIDA",12,0xFF9BAAC2,true));
         String[] targetLabels = Arrays.copyOfRange(labels,1,labels.length);
-        target = new Spinner(this); target.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item,targetLabels)); target.setSelection(12); root.addView(target);
+        target = new Spinner(this); target.setAdapter(new WhiteSpinnerAdapter(targetLabels)); target.setSelection(12); root.addView(target);
+        Button settings = new Button(this); settings.setText("⚙ CONFIGURACIÓN"); settings.setAllCaps(false); root.addView(settings,new LinearLayout.LayoutParams(-1,WRAP_CONTENT));
+        settings.setOnClickListener(v -> showSettings());
         LinearLayout buttons = new LinearLayout(this); buttons.setOrientation(0); buttons.setPadding(0,18,0,16);
         start = new Button(this); start.setText("🎙 INICIAR"); start.setAllCaps(false);
         stop = new Button(this); stop.setText("DETENER"); stop.setAllCaps(false); stop.setEnabled(false);
         buttons.addView(start,new LinearLayout.LayoutParams(0,WRAP_CONTENT,1)); buttons.addView(stop,new LinearLayout.LayoutParams(0,WRAP_CONTENT,1)); root.addView(buttons);
-        status = text("Listo. Se necesita Internet y permiso de micrófono.",13,0xFFB7C2D5,false); status.setPadding(0,0,0,14); root.addView(status);
+        status = text("Listo. Se necesita Internet y permiso de captura de audio interno.",13,0xFFB7C2D5,false); status.setPadding(0,0,0,14); root.addView(status);
         root.addView(text("TEXTO RECONOCIDO",13,0xFF9BAAC2,true));
         heard = panel(root);
         root.addView(text("TRADUCCIÓN",13,0xFF9BAAC2,true));
@@ -81,6 +86,16 @@ public class MainActivity extends Activity {
         t.setMinHeight(110); t.setGravity(Gravity.TOP); t.setBackground(bg(0xFF1D293D,18));
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1,WRAP_CONTENT); p.setMargins(0,8,0,18); root.addView(t,p); return t;
     }
+    private void showSettings(){
+        new AlertDialog.Builder(this).setTitle("Configuración")
+            .setMessage("Fuente de audio: SOLO AUDIO INTERNO. La APK intentará capturar el sonido multimedia reproducido por otra aplicación. No activa la grabación del micrófono. Android exige permiso de captura de audio y confirmación del sistema cada vez que se inicia. Selecciona los idiomas en la pantalla principal.")
+            .setPositiveButton("Aceptar",null).show();
+    }
+    private class WhiteSpinnerAdapter extends ArrayAdapter<String>{
+        WhiteSpinnerAdapter(String[] values){super(MainActivity.this,android.R.layout.simple_spinner_item,values);setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);}
+        @Override public View getView(int position,View convertView,android.view.ViewGroup parent){TextView v=(TextView)super.getView(position,convertView,parent);v.setTextColor(Color.WHITE);v.setTextSize(16);return v;}
+        @Override public View getDropDownView(int position,View convertView,android.view.ViewGroup parent){TextView v=(TextView)super.getDropDownView(position,convertView,parent);v.setTextColor(Color.WHITE);v.setBackgroundColor(0xFF1D293D);v.setPadding(18,16,18,16);return v;}
+    }
     private class SimpleSelect implements AdapterView.OnItemSelectedListener {
         public void onNothingSelected(AdapterView<?> p) {}
         public void onItemSelected(AdapterView<?> p, View v, int pos, long id) { if(listening) { stopListening(); status.setText("Idioma cambiado. Pulsa Iniciar para continuar."); } }
@@ -95,13 +110,16 @@ public class MainActivity extends Activity {
             status.setText("Autoriza mostrar sobre otras aplicaciones y vuelve aquí.");
             return;
         }
-        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_AUDIO); return;
-        }
-        startOverlayTranslator();
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) { requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_AUDIO); return; }
+        requestInternalCapture();
     }
-    private void startOverlayTranslator() {
+    private void requestInternalCapture(){
+        MediaProjectionManager manager=(MediaProjectionManager)getSystemService(MEDIA_PROJECTION_SERVICE);
+        startActivityForResult(manager.createScreenCaptureIntent(),REQ_CAPTURE);
+    }
+    private void startOverlayTranslator(int resultCode, Intent projectionData) {
         Intent service = new Intent(this, FloatingTranslatorService.class);
+        service.putExtra("projection_result",resultCode); service.putExtra("projection_data",projectionData);
         service.putExtra("source", sourceCode());
         service.putExtra("target", codes[target.getSelectedItemPosition()+1]);
         if (android.os.Build.VERSION.SDK_INT >= 26) startForegroundService(service); else startService(service);
@@ -110,15 +128,14 @@ public class MainActivity extends Activity {
     }
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQ_OVERLAY && android.provider.Settings.canDrawOverlays(this)) {
-            status.setText("Permiso de ventana flotante concedido. Pulsa Iniciar.");
-        }
+        if(requestCode==REQ_CAPTURE){ if(resultCode==RESULT_OK && data!=null) startOverlayTranslator(resultCode,data); else status.setText("No se autorizó la captura de audio interno."); return; }
+        if (requestCode == REQ_OVERLAY && android.provider.Settings.canDrawOverlays(this)) status.setText("Permiso de ventana flotante concedido. Pulsa Iniciar.");
     }
     @Override public void onRequestPermissionsResult(int r, String[] p, int[] g) {
         super.onRequestPermissionsResult(r,p,g);
         if(r==REQ_AUDIO && g.length>0 && g[0]==PackageManager.PERMISSION_GRANTED) {
-            if (android.provider.Settings.canDrawOverlays(this)) startOverlayTranslator();
-        } else if(r==REQ_AUDIO) status.setText("Se necesita permiso de micrófono.");
+            if (android.provider.Settings.canDrawOverlays(this)) requestInternalCapture();
+        } else if(r==REQ_AUDIO) status.setText("Android exige permiso de captura de audio para leer la reproducción interna; la APK no usará el micrófono.");
     }
     private String sourceCode() { int i=source.getSelectedItemPosition(); return codes[Math.max(0,Math.min(i,codes.length-1))]; }
     private void stopListening() {
