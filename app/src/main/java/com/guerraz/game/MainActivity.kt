@@ -1,6 +1,6 @@
 package com.guerraz.game
 
-import android.os.Bundle
+import android.os.Bundle\nimport android.os.Handler\nimport android.os.Looper\nimport android.webkit.JavascriptInterface\nimport android.webkit.WebView\nimport androidx.compose.ui.viewinterop.AndroidView
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
@@ -233,66 +233,25 @@ private fun MapView(g: GameState, clock: Long, set: (GameState) -> Unit) {
             }
             Text("● CONTROL PROPIO", color = Color(0xFF80C98B), fontSize = 9.sp)
         }
-        Canvas(Modifier.fillMaxWidth().weight(1f).pointerInput(g.provinces, g.selected) {
-            detectTapGestures { tap ->
-                val cellW = size.width / 4f
-                val cellH = size.height / 6f
-                val col = (tap.x / cellW).toInt().coerceIn(0, 3)
-                val row = (tap.y / cellH).toInt().coerceIn(0, 5)
-                val index = (row * 4 + col).coerceIn(0, g.provinces.lastIndex)
-                set(g.copy(selected = g.provinces[index].name))
-            }
-        }) {
-            val cellW = size.width / 4f
-            val cellH = size.height / 6f
-            val native = drawContext.canvas.nativeCanvas
-            val labelPaint = AndroidPaint().apply {
-                color = android.graphics.Color.WHITE
-                textAlign = AndroidPaint.Align.CENTER
-                textSize = (size.width * 0.025f).coerceAtLeast(9f)
-                isFakeBoldText = true
-                isAntiAlias = true
-            }
-            val unitPaint = AndroidPaint().apply {
-                color = android.graphics.Color.rgb(244, 220, 151)
-                textAlign = AndroidPaint.Align.CENTER
-                textSize = (size.width * 0.022f).coerceAtLeast(8f)
-                isAntiAlias = true
-            }
-            g.provinces.forEachIndexed { index, province ->
-                val col = index % 4
-                val row = index / 4
-                val left = col * cellW
-                val top = row * cellH
-                val inset = cellW * 0.035f
-                val wobble = ((index * 17) % 9) * cellW * 0.004f
-                val points = listOf(
-                    Offset(left + inset + wobble, top + inset),
-                    Offset(left + cellW - inset, top + inset + wobble),
-                    Offset(left + cellW - inset - wobble, top + cellH * 0.48f),
-                    Offset(left + cellW - inset * 1.4f, top + cellH - inset),
-                    Offset(left + cellW * 0.48f, top + cellH - inset * 0.6f),
-                    Offset(left + inset, top + cellH * 0.72f)
-                )
-                val path = Path().apply {
-                    moveTo(points.first().x, points.first().y)
-                    points.drop(1).forEach { lineTo(it.x, it.y) }
-                    close()
-                }
-                val selected = province.name == g.selected
-                val owned = province.buildings.isNotEmpty() || province.infantry > 0 || province.tanks > 0
-                drawPath(path, if (selected) Color(0xFFC99F45) else if (owned) Color(0xFF386B48) else Color(0xFF526052))
-                drawPath(path, Color(0xFFB8C3A9), style = Stroke(width = 1.6f))
-                val cx = left + cellW / 2f
-                val cy = top + cellH * 0.43f
-                native.drawText(shortNames.getOrElse(index) { province.name.uppercase() }, cx, cy, labelPaint)
-                if (province.infantry + province.tanks > 0) {
-                    native.drawText("SOLD " + province.infantry + "  TANQ " + province.tanks, cx, cy + cellH * 0.19f, unitPaint)
-                } else {
-                    native.drawText("—", cx, cy + cellH * 0.19f, unitPaint)
+        AndroidView(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            factory = { viewContext ->
+                WebView(viewContext).apply {
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = false
+                    setBackgroundColor(android.graphics.Color.rgb(31, 46, 37))
+                    addJavascriptInterface(object {
+                        @JavascriptInterface
+                        fun onProvinceSelected(name: String) {
+                            Handler(Looper.getMainLooper()).post {
+                                set(g.copy(selected = name))
+                            }
+                        }
+                    }, "GuerraBridge")
+                    loadUrl("file:///android_asset/province_map.html")
                 }
             }
-        }
+        )
         Surface(color = Color(0xFF293B30), shape = RoundedCornerShape(10.dp)) {
             Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
