@@ -1,6 +1,11 @@
 package com.guerraz.game
 
-import android.os.Bundle\nimport android.os.Handler\nimport android.os.Looper\nimport android.webkit.JavascriptInterface\nimport android.webkit.WebView\nimport androidx.compose.ui.viewinterop.AndroidView
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.webkit.JavascriptInterface
+import android.webkit.WebView
+import androidx.compose.ui.viewinterop.AndroidView
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
