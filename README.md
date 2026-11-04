@@ -1,40 +1,28 @@
 # Guerra Z
 
-Juego de estrategia bélica para Android. Proyecto independiente, con identidad visual y código propios.
+Juego de estrategia bélica para Android, de ritmo acelerado y con identidad propia.
 
-## Objetivo
-Una experiencia de estrategia territorial con mapa político, provincias, economía, construcción, investigación, producción militar, movimiento de ejércitos, combate y conquista. El ritmo será acelerado: las acciones que suelen tardar horas o días se resolverán en minutos o segundos.
+## Primera base jugable
+- Aplicación Android nativa con Jetpack Compose.
+- 24 jurisdicciones argentinas seleccionables.
+- Capital inicial con base militar, cuartel, fábrica y 20 soldados.
+- Recursos nacionales y producción de fábricas cada 2 minutos.
+- Colas temporizadas de construcción y reclutamiento.
+- Infantería, tanques e interfaz inicial de investigación.
+- Actualización de órdenes mientras la aplicación está abierta.
 
-## Sistemas principales
-- Países, fronteras, provincias y capitales.
-- Economía, recursos, producción y mantenimiento.
-- Cuarteles, fábricas, aeródromos, puertos, defensas y centros de investigación.
-- Infantería, reconocimiento, artillería, blindados, aviación y marina.
-- Investigación tecnológica por ramas.
-- Órdenes de movimiento, rutas, combate y ocupación.
-- Guardado local y temporizadores persistentes.
+## Próximas fases
+- Guardado persistente y recuperación de temporizadores al reabrir.
+- Mapa geográfico poligonal con límites reales, zoom y desplazamiento.
+- Movimiento entre provincias, rutas y combate por ciclos.
+- Efectos de tecnologías, mantenimiento, moral, diplomacia y unidades aéreas/navales.
+- Más países y campañas; multijugador después de estabilizar el modo local.
 
-## Ritmo inicial propuesto
-Valores de diseño preliminares, ajustables durante el balance:
+## Ritmo previsto
+Construcción básica 2 min; cuartel 3 min; fábrica 5 min; base aérea 4 min; investigación 3 min; infantería 1 min; tanque 5 min; movimiento vecino objetivo 30 s–2 min.
 
-| Acción | Duración |
-|---|---:|
-| Construcción básica | 2 min |
-| Cuartel | 3 min |
-| Fábrica | 5 min |
-| Base aérea | 4 min |
-| Investigación básica | 3 min |
-| Entrenar infantería | 1 min |
-| Entrenar tanque | 5 min |
-| Movimiento a provincia vecina | 30 s–2 min |
+## Compilación
+GitHub Actions compila el APK debug en cada push a main y publica un artefacto si la compilación termina correctamente.
 
-Los tiempos dependerán también del tipo de unidad, distancia, nivel del edificio, tecnología y terreno.
-
-## Identidad y propiedad intelectual
-Guerra Z tendrá nombre, código, interfaz, mapas y recursos gráficos propios o con licencias compatibles. Se tomarán como referencia únicamente mecánicas generales del género; no se copiarán código, marcas, mapas propietarios ni recursos gráficos de otros juegos.
-
-## Estado del proyecto
-Inicio del desarrollo. Los sistemas enumerados son objetivos, no funciones ya terminadas.
-
-## Plataforma
-Android. Primero se construirá una campaña local funcional y verificable; el multijugador se abordará después de estabilizar economía, temporizadores, movimiento y combate.
+## Identidad
+Código, nombre, interfaz, mapas y recursos propios o con licencias compatibles. Se toman como referencia mecánicas generales del género; no se copian marcas ni recursos protegidos.
