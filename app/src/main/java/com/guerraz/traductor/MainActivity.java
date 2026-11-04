@@ -24,8 +24,8 @@ import java.util.*;
 
 public class MainActivity extends Activity {
     private static final int REQ_AUDIO = 41;
-    private final String[] labels = {"Automático (idioma del teléfono)","Árabe","Bengalí","Búlgaro","Catalán","Chino (simplificado)","Chino (tradicional)","Coreano","Croata","Danés","Eslovaco","Esloveno","Español","Estonio","Finés","Francés","Griego","Hebreo","Hindi","Húngaro","Indonesio","Inglés","Italiano","Japonés","Malayo","Neerlandés","Noruego","Persa","Polaco","Portugués","Rumano","Ruso","Serbio","Sueco","Tailandés","Turco","Ucraniano","Vietnamita"};
-    private final String[] codes = {"auto","ar","bn","bg","ca","zh-CN","zh-TW","ko","hr","da","sk","sl","es","et","fi","fr","el","he","hi","hu","id","en","it","ja","ms","nl","no","fa","pl","pt","ro","ru","sr","sv","th","tr","uk","vi"};
+    private final String[] labels = {"Automático (idioma del teléfono)","Árabe","Bengalí","Búlgaro","Catalán","Chino (simplificado)","Chino (tradicional)","Coreano","Croata","Danés","Alemán","Eslovaco","Esloveno","Español","Estonio","Finés","Francés","Griego","Hebreo","Hindi","Húngaro","Indonesio","Inglés","Italiano","Japonés","Malayo","Neerlandés","Noruego","Persa","Polaco","Portugués","Rumano","Ruso","Serbio","Sueco","Tailandés","Turco","Ucraniano","Vietnamita"};
+    private final String[] codes = {"auto","ar","bn","bg","ca","zh-CN","zh-TW","ko","hr","da","de","sk","sl","es","et","fi","fr","el","he","hi","hu","id","en","it","ja","ms","nl","no","fa","pl","pt","ro","ru","sr","sv","th","tr","uk","vi"};
     private Spinner source, target;
     private TextView heard, translated, status;
     private Button start, stop;
