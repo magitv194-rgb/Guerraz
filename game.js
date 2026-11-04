@@ -18,7 +18,7 @@ const unitSpecs={
 };
 let state,paused=false,lastTick=Date.now(),toastTimer;
 function fresh(){const provinces={};MapRenderer.regions.forEach(r=>{const own=["san-juan","mendoza","cordoba"].includes(r.id);provinces[r.id]={owner:own?"player":"neutral",buildings:r.id==="san-juan"?{"Cuartel":1,"Fábrica":1,"Granja":1}:{},morale:75,resources:{money:100,food:80,oil:50,metal:65,ammo:40}};r.owner=provinces[r.id].owner;});return{resources:{...defaults},provinces,units:[{id:1,type:"infantry",name:"Regimiento de San Juan",count:18,province:"san-juan",moving:false},{id:2,type:"tank",name:"Grupo blindado de Cuyo",count:4,province:"mendoza",moving:false},{id:3,type:"infantry",name:"Brigada Central",count:12,province:"cordoba",moving:false}],orders:[],researched:[],relations:{},nextId:4,started:Date.now(),gameMinutes:0};}
-function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.resources&&s.provinces&&s.units)return s;}catch(e){}return fresh();}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.resources&&s.provinces&&s.units&&s.provinces["san-juan"])return s;}catch(e){}return fresh();}
 function save(){localStorage.setItem(KEY,JSON.stringify(state));}
 function fmtCost(c){return Object.entries(c).filter(([k])=>k!=="minutes"&&k!=="count").map(([k,v])=>v+" "+(names[k]||k)).join(" · ");}
 function canPay(c){return Object.entries(c).every(([k,v])=>k==="minutes"||k==="count"||(state.resources[k]||0)>=v);}
