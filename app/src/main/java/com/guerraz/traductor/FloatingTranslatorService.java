@@ -27,6 +27,7 @@ public class FloatingTranslatorService extends Service {
     private WindowManager.LayoutParams params;
     private String source = "auto", target = "es";
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private Runnable partialTranslation;
     private static final String CHANNEL = "translator_overlay";
 
     @Override public void onCreate() {
@@ -109,10 +110,10 @@ public class FloatingTranslatorService extends Service {
             public void onBeginningOfSpeech(){}
             public void onRmsChanged(float v){}
             public void onBufferReceived(byte[] b){}
-            public void onEndOfSpeech(){update("Procesando…");}
+            public void onEndOfSpeech(){}
             public void onError(int e){if(running){update("Reintentando escucha…");handler.postDelayed(()->launch(),900);}}
-            public void onResults(Bundle b){consume(b);if(running)handler.postDelayed(()->launch(),350);}
-            public void onPartialResults(Bundle b){consume(b);}
+            public void onResults(Bundle b){if(partialTranslation!=null)handler.removeCallbacks(partialTranslation);consume(b);if(running)handler.postDelayed(()->launch(),120);}
+            public void onPartialResults(Bundle b){schedulePartial(b);}
             public void onEvent(int e,Bundle b){}
         });
         running=true; launch();
@@ -129,6 +130,14 @@ public class FloatingTranslatorService extends Service {
         i.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS,true);
         i.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS,1);
         try{recognizer.startListening(i);}catch(Exception e){update("No se pudo iniciar el reconocimiento.");}
+    }
+    private void schedulePartial(Bundle b) {
+        ArrayList<String> a=b.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+        if(a==null||a.isEmpty())return;
+        final String phrase=a.get(0).trim(); if(phrase.isEmpty())return;
+        if(partialTranslation!=null)handler.removeCallbacks(partialTranslation);
+        partialTranslation=()->{ if(running) translate(phrase); };
+        handler.postDelayed(partialTranslation,650);
     }
     private void consume(Bundle b) {
         ArrayList<String> a=b.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
