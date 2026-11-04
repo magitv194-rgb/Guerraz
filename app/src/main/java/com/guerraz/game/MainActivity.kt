@@ -266,8 +266,8 @@ private fun MapView(g: GameState, clock: Long, set: (GameState) -> Unit) {
                 Text(if (p.buildings.isEmpty()) "Sin instalaciones" else p.buildings.entries.joinToString("  ·  ") { it.key + " Nv." + it.value },
                     color = Color.LightGray, fontSize = 10.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    listOf("Cuartel" to 3, "Fábrica" to 5, "Aeródromo" to 4).forEach { (name, minutes) ->
-                        Button(onClick = { buildOrder(g, p, name, minutes * 60000L, set) },
+                    listOf("Cuartel", "Fábrica", "Aeródromo").forEach { name ->
+                        Button(onClick = { buildOrder(g, p, name, 60_000L, set) },
                             enabled = p.buildings[name] == null && g.money >= 100,
                             modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 2.dp, vertical = 5.dp)) {
                             Text(name, fontSize = 9.sp)
