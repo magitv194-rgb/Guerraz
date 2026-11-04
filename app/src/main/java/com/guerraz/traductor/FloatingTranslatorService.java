@@ -7,6 +7,10 @@ import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.media.AudioManager;
+import android.media.AudioAttributes;
+import android.media.AudioPlaybackCaptureConfiguration;
+import android.media.projection.MediaProjection;
+import android.media.projection.MediaProjectionManager;
 import android.graphics.PixelFormat;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -26,10 +30,11 @@ public class FloatingTranslatorService extends Service {
     private View overlay;
     private TextView caption, state;
     private SpeechRecognizer recognizer;
-    private AudioRecord micRecorder;
-    private ParcelFileDescriptor micReadPipe, micWritePipe;
-    private volatile boolean micCaptureActive = false;
-    private Thread micCaptureThread;
+    private AudioRecord playbackRecorder;
+    private MediaProjection mediaProjection;
+    private ParcelFileDescriptor audioReadPipe, audioWritePipe;
+    private volatile boolean audioCaptureActive = false;
+    private Thread audioCaptureThread;
     private boolean running = false;
     private int windowWidth, textSize = 20;
     private WindowManager.LayoutParams params;
@@ -46,7 +51,7 @@ public class FloatingTranslatorService extends Service {
             .setContentText("Escuchando audio para mostrar subtítulos traducidos")
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setOngoing(true).build();
-        if (Build.VERSION.SDK_INT >= 29) startForeground(7, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
+        if (Build.VERSION.SDK_INT >= 29) startForeground(7, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
         else startForeground(7, n);
         wm = (WindowManager)getSystemService(WINDOW_SERVICE);
     }
@@ -58,6 +63,9 @@ public class FloatingTranslatorService extends Service {
     }
     @Override public int onStartCommand(Intent intent, int flags, int id) {
         if (intent != null) {
+            int projectionResult=intent.getIntExtra("projection_result", Activity.RESULT_CANCELED);
+            Intent projectionData=intent.getParcelableExtra("projection_data");
+            if(projectionResult==Activity.RESULT_OK && projectionData!=null){ MediaProjectionManager manager=(MediaProjectionManager)getSystemService(MEDIA_PROJECTION_SERVICE); mediaProjection=manager.getMediaProjection(projectionResult,projectionData); }
             source = intent.getStringExtra("source") == null ? "auto" : intent.getStringExtra("source");
             target = intent.getStringExtra("target") == null ? "es" : intent.getStringExtra("target");
         }
@@ -76,17 +84,17 @@ public class FloatingTranslatorService extends Service {
     private void showOverlay() {
         if (overlay != null) return;
         LinearLayout card = new LinearLayout(this); card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(14,10,14,12); card.setBackground(shape(0xEE111827,18));
+        card.setPadding(20,16,20,18); card.setBackground(shape(0xEE111827,18));
         LinearLayout bar = new LinearLayout(this); bar.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = label("TRADUCTOR · ES",12,true); title.setPadding(2,4,10,4);
+        TextView title = label("TRADUCTOR · ES",16,true); title.setPadding(2,4,10,4);
         TextView smaller = control("−"), larger = control("+"), resume = control("▶"), stop = control("DETENER"), close = control("×");
         bar.addView(title,new LinearLayout.LayoutParams(0,-2,1));
         bar.addView(smaller); bar.addView(larger); bar.addView(resume); bar.addView(stop); bar.addView(close); card.addView(bar);
-        state = label("Conectando al micrófono…",11,false); state.setTextColor(0xFFB8C5D8); card.addView(state);
-        caption = label("Los subtítulos aparecerán aquí…",textSize,true);
-        caption.setPadding(2,8,2,4); caption.setMaxLines(8); card.addView(caption);
-        smaller.setOnClickListener(v -> {textSize=Math.max(12,textSize-2); caption.setTextSize(textSize); windowWidth=Math.max(220,windowWidth-36); params.width=windowWidth; try{wm.updateViewLayout(overlay,params);}catch(Exception ignored){} });
-        larger.setOnClickListener(v -> {textSize=Math.min(40,textSize+2); caption.setTextSize(textSize); windowWidth=Math.min(getResources().getDisplayMetrics().widthPixels,windowWidth+36); params.width=windowWidth; try{wm.updateViewLayout(overlay,params);}catch(Exception ignored){} });
+        state = label("Preparando captura de audio interno…",13,false); state.setTextColor(0xFFB8C5D8); card.addView(state);
+        caption = label("Los subtítulos aparecerán aquí…",24,true); textSize=24;
+        caption.setPadding(2,8,2,4); caption.setMaxLines(12); card.addView(caption);
+        smaller.setOnClickListener(v -> {textSize=Math.max(12,textSize-2); caption.setTextSize(textSize); windowWidth=Math.max(280,windowWidth-36); params.width=windowWidth; try{wm.updateViewLayout(overlay,params);}catch(Exception ignored){} });
+        larger.setOnClickListener(v -> {textSize=Math.min(40,textSize+2); caption.setTextSize(textSize); windowWidth=Math.min(getResources().getDisplayMetrics().widthPixels,windowWidth+48); params.width=windowWidth; try{wm.updateViewLayout(overlay,params);}catch(Exception ignored){} });
         resume.setOnClickListener(v -> { if(!running) startRecognition(); });
         stop.setOnClickListener(v -> { stopRecognition(); update("Escucha detenida · pulsa ▶ para reanudar"); });
         close.setOnClickListener(v -> stopSelf());
@@ -108,11 +116,12 @@ public class FloatingTranslatorService extends Service {
         try {wm.addView(overlay,params);} catch(Exception e){overlay=null;stopSelf();}
     }
     private TextView control(String s) {
-        TextView t=label(s, s.equals("DETENER") ? 13 : 26,true); t.setGravity(Gravity.CENTER); t.setBackground(shape(0xFF334155,24));
-        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(s.equals("DETENER") ? 82 : 52,48); p.setMargins(3,0,3,0); t.setLayoutParams(p); return t;
+        TextView t=label(s, s.equals("DETENER") ? 15 : 30,true); t.setGravity(Gravity.CENTER); t.setBackground(shape(0xFF334155,24));
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(s.equals("DETENER") ? 100 : 60,58); p.setMargins(3,0,3,0); t.setLayoutParams(p); return t;
     }
     private void stopRecognition() {
         running=false;
+        stopAudioPipe();
         if(partialTranslation!=null) handler.removeCallbacks(partialTranslation);
         if(recognizer!=null){try{recognizer.cancel();}catch(Exception ignored){}}
     }
@@ -125,9 +134,9 @@ public class FloatingTranslatorService extends Service {
             public void onBeginningOfSpeech(){}
             public void onRmsChanged(float v){}
             public void onBufferReceived(byte[] b){}
-            public void onEndOfSpeech(){}
-            public void onError(int e){if(running){update("Reintentando escucha…");handler.postDelayed(()->launch(),900);}}
-            public void onResults(Bundle b){if(partialTranslation!=null)handler.removeCallbacks(partialTranslation);consume(b);if(running)handler.postDelayed(()->launch(),120);}
+            public void onEndOfSpeech(){stopAudioPipe();}
+            public void onError(int e){stopAudioPipe();if(running){update("Reintentando escucha…");handler.postDelayed(()->launch(),900);}}
+            public void onResults(Bundle b){stopAudioPipe();if(partialTranslation!=null)handler.removeCallbacks(partialTranslation);consume(b);if(running)handler.postDelayed(()->launch(),120);}
             public void onPartialResults(Bundle b){schedulePartial(b);}
             public void onEvent(int e,Bundle b){}
         });
@@ -144,48 +153,29 @@ public class FloatingTranslatorService extends Service {
         i.putExtra(RecognizerIntent.EXTRA_LANGUAGE,speechLocale());
         i.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS,true);
         i.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS,1);
-        try{recognizer.startListening(i);}catch(Exception e){update("No se pudo iniciar el reconocimiento.");}
+        try{ if(Build.VERSION.SDK_INT<29 || mediaProjection==null){update("Falta permiso de captura de audio interno.");running=false;return;} if(!startAudioPipe()){update("No se pudo capturar el audio interno.");running=false;return;} if(Build.VERSION.SDK_INT>=33){i.putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE,audioReadPipe);i.putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_CHANNEL_COUNT,1);i.putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_ENCODING,AudioFormat.ENCODING_PCM_16BIT);i.putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_SAMPLING_RATE,16000);}else{update("La entrada de audio personalizada requiere Android 13.");stopAudioPipe();running=false;return;} recognizer.startListening(i);}catch(Exception e){stopAudioPipe();update("No se pudo iniciar el reconocimiento interno.");}
     }
-    private boolean startMicPipe() {
-        stopMicPipe();
+    private boolean startAudioPipe() {
+        stopAudioPipe();
         try {
+            AudioPlaybackCaptureConfiguration config = new AudioPlaybackCaptureConfiguration.Builder(mediaProjection)
+                .addMatchingUsage(AudioAttributes.USAGE_MEDIA).addMatchingUsage(AudioAttributes.USAGE_GAME).build();
             int min=AudioRecord.getMinBufferSize(16000,AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT);
-            if(min<=0) return false;
-            micRecorder=new AudioRecord(MediaRecorder.AudioSource.MIC,16000,AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT,Math.max(min,6400));
-            if(micRecorder.getState()!=AudioRecord.STATE_INITIALIZED) { stopMicPipe(); return false; }
-            ParcelFileDescriptor[] pipe=ParcelFileDescriptor.createPipe();
-            micReadPipe=pipe[0]; micWritePipe=pipe[1];
-            micRecorder.startRecording();
-            micCaptureActive=true;
-            final AudioRecord recorder=micRecorder;
-            final ParcelFileDescriptor writer=micWritePipe;
-            micCaptureThread=new Thread(()->{
-                byte[] buffer=new byte[3200];
-                try(FileOutputStream out=new FileOutputStream(writer.getFileDescriptor())) {
-                    while(micCaptureActive) {
-                        int count=recorder.read(buffer,0,buffer.length);
-                        if(count>0) out.write(buffer,0,count);
-                        else if(count<0) break;
-                    }
-                } catch(Exception ignored) {}
-            },"translator-mic-pipe");
-            micCaptureThread.start();
-            return true;
-        } catch(Exception e) {
-            stopMicPipe();
-            return false;
-        }
+            if(min<=0)return false;
+            playbackRecorder=new AudioRecord.Builder().setAudioFormat(new AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(16000).setChannelMask(AudioFormat.CHANNEL_IN_MONO).build()).setBufferSizeInBytes(Math.max(min,12800)).setAudioPlaybackCaptureConfig(config).build();
+            if(playbackRecorder.getState()!=AudioRecord.STATE_INITIALIZED){stopAudioPipe();return false;}
+            ParcelFileDescriptor[] pipe=ParcelFileDescriptor.createPipe(); audioReadPipe=pipe[0]; audioWritePipe=pipe[1];
+            playbackRecorder.startRecording(); audioCaptureActive=true;
+            final AudioRecord recorder=playbackRecorder; final ParcelFileDescriptor writer=audioWritePipe;
+            audioCaptureThread=new Thread(()->{byte[] buffer=new byte[3200];try(FileOutputStream out=new FileOutputStream(writer.getFileDescriptor())){while(audioCaptureActive){int count=recorder.read(buffer,0,buffer.length);if(count>0)out.write(buffer,0,count);else if(count<0)break;}}catch(Exception ignored){}} ,"translator-playback-capture");
+            audioCaptureThread.start(); return true;
+        }catch(Exception e){stopAudioPipe();return false;}
     }
-    private void stopMicPipe() {
-        micCaptureActive=false;
-        if(micRecorder!=null) {
-            try { if(micRecorder.getRecordingState()==AudioRecord.RECORDSTATE_RECORDING) micRecorder.stop(); } catch(Exception ignored) {}
-            try { micRecorder.release(); } catch(Exception ignored) {}
-            micRecorder=null;
-        }
-        if(micWritePipe!=null){try{micWritePipe.close();}catch(Exception ignored){}micWritePipe=null;}
-        if(micReadPipe!=null){try{micReadPipe.close();}catch(Exception ignored){}micReadPipe=null;}
-        micCaptureThread=null;
+    private void stopAudioPipe(){
+        audioCaptureActive=false;
+        if(playbackRecorder!=null){try{if(playbackRecorder.getRecordingState()==AudioRecord.RECORDSTATE_RECORDING)playbackRecorder.stop();}catch(Exception ignored){}try{playbackRecorder.release();}catch(Exception ignored){}playbackRecorder=null;}
+        if(audioWritePipe!=null){try{audioWritePipe.close();}catch(Exception ignored){}audioWritePipe=null;}
+        if(audioReadPipe!=null){try{audioReadPipe.close();}catch(Exception ignored){}audioReadPipe=null;} audioCaptureThread=null;
     }
     private void schedulePartial(Bundle b) {
         ArrayList<String> a=b.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
@@ -222,9 +212,10 @@ public class FloatingTranslatorService extends Service {
     }
     private void update(String s){handler.post(()->{if(state!=null)state.setText(s);});}
     @Override public void onDestroy() {
-        running=false;stopMicPipe();handler.removeCallbacksAndMessages(null);
+        running=false;stopAudioPipe();handler.removeCallbacksAndMessages(null);
         if(recognizer!=null){try{recognizer.cancel();recognizer.destroy();}catch(Exception ignored){}recognizer=null;}
         if(overlay!=null){try{wm.removeView(overlay);}catch(Exception ignored){}overlay=null;}
+        if(mediaProjection!=null){try{mediaProjection.stop();}catch(Exception ignored){}mediaProjection=null;}
         super.onDestroy();
     }
     @Override public IBinder onBind(Intent intent){return null;}
