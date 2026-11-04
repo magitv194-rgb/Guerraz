@@ -3,6 +3,10 @@ package com.guerraz.traductor;
 import android.app.*;
 import android.content.*;
 import android.graphics.Color;
+import android.media.AudioFormat;
+import android.media.AudioRecord;
+import android.media.MediaRecorder;
+import android.media.AudioManager;
 import android.graphics.PixelFormat;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -22,6 +26,10 @@ public class FloatingTranslatorService extends Service {
     private View overlay;
     private TextView caption, state;
     private SpeechRecognizer recognizer;
+    private AudioRecord micRecorder;
+    private ParcelFileDescriptor micReadPipe, micWritePipe;
+    private volatile boolean micCaptureActive = false;
+    private Thread micCaptureThread;
     private boolean running = false;
     private int windowWidth, textSize = 20;
     private WindowManager.LayoutParams params;
@@ -138,6 +146,47 @@ public class FloatingTranslatorService extends Service {
         i.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS,1);
         try{recognizer.startListening(i);}catch(Exception e){update("No se pudo iniciar el reconocimiento.");}
     }
+    private boolean startMicPipe() {
+        stopMicPipe();
+        try {
+            int min=AudioRecord.getMinBufferSize(16000,AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT);
+            if(min<=0) return false;
+            micRecorder=new AudioRecord(MediaRecorder.AudioSource.MIC,16000,AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT,Math.max(min,6400));
+            if(micRecorder.getState()!=AudioRecord.STATE_INITIALIZED) { stopMicPipe(); return false; }
+            ParcelFileDescriptor[] pipe=ParcelFileDescriptor.createPipe();
+            micReadPipe=pipe[0]; micWritePipe=pipe[1];
+            micRecorder.startRecording();
+            micCaptureActive=true;
+            final AudioRecord recorder=micRecorder;
+            final ParcelFileDescriptor writer=micWritePipe;
+            micCaptureThread=new Thread(()->{
+                byte[] buffer=new byte[3200];
+                try(FileOutputStream out=new FileOutputStream(writer.getFileDescriptor())) {
+                    while(micCaptureActive) {
+                        int count=recorder.read(buffer,0,buffer.length);
+                        if(count>0) out.write(buffer,0,count);
+                        else if(count<0) break;
+                    }
+                } catch(Exception ignored) {}
+            },"translator-mic-pipe");
+            micCaptureThread.start();
+            return true;
+        } catch(Exception e) {
+            stopMicPipe();
+            return false;
+        }
+    }
+    private void stopMicPipe() {
+        micCaptureActive=false;
+        if(micRecorder!=null) {
+            try { if(micRecorder.getRecordingState()==AudioRecord.RECORDSTATE_RECORDING) micRecorder.stop(); } catch(Exception ignored) {}
+            try { micRecorder.release(); } catch(Exception ignored) {}
+            micRecorder=null;
+        }
+        if(micWritePipe!=null){try{micWritePipe.close();}catch(Exception ignored){}micWritePipe=null;}
+        if(micReadPipe!=null){try{micReadPipe.close();}catch(Exception ignored){}micReadPipe=null;}
+        micCaptureThread=null;
+    }
     private void schedulePartial(Bundle b) {
         ArrayList<String> a=b.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
         if(a==null||a.isEmpty())return;
@@ -173,7 +222,7 @@ public class FloatingTranslatorService extends Service {
     }
     private void update(String s){handler.post(()->{if(state!=null)state.setText(s);});}
     @Override public void onDestroy() {
-        running=false;handler.removeCallbacksAndMessages(null);
+        running=false;stopMicPipe();handler.removeCallbacksAndMessages(null);
         if(recognizer!=null){try{recognizer.cancel();recognizer.destroy();}catch(Exception ignored){}recognizer=null;}
         if(overlay!=null){try{wm.removeView(overlay);}catch(Exception ignored){}overlay=null;}
         super.onDestroy();
