@@ -6,6 +6,14 @@ import org.json.JSONArray
 import org.json.JSONObject
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
+import android.graphics.Paint as AndroidPaint
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -212,32 +220,101 @@ private fun RowScope.Resource(icon: String, value: Int) {
 
 @Composable
 private fun MapView(g: GameState, clock: Long, set: (GameState) -> Unit) {
-    val p = g.provinces.first { it.name == g.selected }
-    Column(Modifier.fillMaxSize()) {
-        Text("ARGENTINA · 24 PROVINCIAS", color = Color.White, fontWeight = FontWeight.Bold)
-        Text("Selecciona un territorio para administrarlo.", color = Color.LightGray, fontSize = 11.sp)
-        LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(vertical = 7.dp), horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            items(g.provinces) { province ->
-                Surface(color = if (province.name == g.selected) Gold else Forest, shape = RoundedCornerShape(7.dp),
-                    modifier = Modifier.clickable { set(g.copy(selected = province.name)) }) {
-                    Column(Modifier.padding(8.dp)) {
-                        Text(province.name, color = if (province.name == g.selected) Background else Color.White,
-                            fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Text("🪖 " + province.infantry + "  🛡️ " + province.tanks, color = Color.White, fontSize = 10.sp)
-                    }
+    val p = g.provinces.firstOrNull { it.name == g.selected } ?: g.provinces.first()
+    val shortNames = listOf("CABA", "BUENOS AIRES", "CATAMARCA", "CHACO", "CHUBUT", "CÓRDOBA",
+        "CORRIENTES", "ENTRE RÍOS", "FORMOSA", "JUJUY", "LA PAMPA", "LA RIOJA", "MENDOZA",
+        "MISIONES", "NEUQUÉN", "RÍO NEGRO", "SALTA", "SAN JUAN", "SAN LUIS", "SANTA CRUZ",
+        "SANTA FE", "S. DEL ESTERO", "T. DEL FUEGO", "TUCUMÁN")
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("TEATRO DE OPERACIONES", color = Gold, fontWeight = FontWeight.Black, fontSize = 14.sp)
+                Text("ARGENTINA · MAPA ESTRATÉGICO", color = Color.LightGray, fontSize = 10.sp)
+            }
+            Text("● CONTROL PROPIO", color = Color(0xFF80C98B), fontSize = 9.sp)
+        }
+        Canvas(Modifier.fillMaxWidth().weight(1f).pointerInput(g.provinces, g.selected) {
+            detectTapGestures { tap ->
+                val cellW = size.width / 4f
+                val cellH = size.height / 6f
+                val col = (tap.x / cellW).toInt().coerceIn(0, 3)
+                val row = (tap.y / cellH).toInt().coerceIn(0, 5)
+                val index = (row * 4 + col).coerceIn(0, g.provinces.lastIndex)
+                set(g.copy(selected = g.provinces[index].name))
+            }
+        }) {
+            val cellW = size.width / 4f
+            val cellH = size.height / 6f
+            val native = drawContext.canvas.nativeCanvas
+            val labelPaint = AndroidPaint().apply {
+                color = android.graphics.Color.WHITE
+                textAlign = AndroidPaint.Align.CENTER
+                textSize = (size.width * 0.025f).coerceAtLeast(9f)
+                isFakeBoldText = true
+                isAntiAlias = true
+            }
+            val unitPaint = AndroidPaint().apply {
+                color = android.graphics.Color.rgb(244, 220, 151)
+                textAlign = AndroidPaint.Align.CENTER
+                textSize = (size.width * 0.022f).coerceAtLeast(8f)
+                isAntiAlias = true
+            }
+            g.provinces.forEachIndexed { index, province ->
+                val col = index % 4
+                val row = index / 4
+                val left = col * cellW
+                val top = row * cellH
+                val inset = cellW * 0.035f
+                val wobble = ((index * 17) % 9) * cellW * 0.004f
+                val points = listOf(
+                    Offset(left + inset + wobble, top + inset),
+                    Offset(left + cellW - inset, top + inset + wobble),
+                    Offset(left + cellW - inset - wobble, top + cellH * 0.48f),
+                    Offset(left + cellW - inset * 1.4f, top + cellH - inset),
+                    Offset(left + cellW * 0.48f, top + cellH - inset * 0.6f),
+                    Offset(left + inset, top + cellH * 0.72f)
+                )
+                val path = Path().apply {
+                    moveTo(points.first().x, points.first().y)
+                    points.drop(1).forEach { lineTo(it.x, it.y) }
+                    close()
+                }
+                val selected = province.name == g.selected
+                val owned = province.buildings.isNotEmpty() || province.infantry > 0 || province.tanks > 0
+                drawPath(path, if (selected) Color(0xFFC99F45) else if (owned) Color(0xFF386B48) else Color(0xFF526052))
+                drawPath(path, Color(0xFFB8C3A9), style = Stroke(width = 1.6f))
+                val cx = left + cellW / 2f
+                val cy = top + cellH * 0.43f
+                native.drawText(shortNames.getOrElse(index) { province.name.uppercase() }, cx, cy, labelPaint)
+                if (province.infantry + province.tanks > 0) {
+                    native.drawText("SOLD " + province.infantry + "  TANQ " + province.tanks, cx, cy + cellH * 0.19f, unitPaint)
+                } else {
+                    native.drawText("—", cx, cy + cellH * 0.19f, unitPaint)
                 }
             }
         }
-        Text("📍 " + p.name, color = Gold, fontWeight = FontWeight.Bold)
-        Text(if (p.buildings.isEmpty()) "Sin edificios" else p.buildings.entries.joinToString { it.key + " nivel " + it.value },
-            color = Color.White, fontSize = 11.sp)
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            listOf("Cuartel" to 3, "Fábrica" to 5, "Aeródromo" to 4).forEach { (name, minutes) ->
-                Button(onClick = { buildOrder(g, p, name, minutes * 60000L, set) },
-                    enabled = p.buildings[name] == null && g.money >= 100, modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(2.dp)) { Text(name, fontSize = 9.sp) }
+        Surface(color = Color(0xFF293B30), shape = RoundedCornerShape(10.dp)) {
+            Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(p.name.uppercase(), color = Gold, fontWeight = FontWeight.Black, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                    Text("PROVINCIA", color = Color.LightGray, fontSize = 9.sp)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Text("INF. " + p.infantry, color = Color.White, fontSize = 11.sp)
+                    Text("TANQUES " + p.tanks, color = Color.White, fontSize = 11.sp)
+                    Text("EDIFICIOS " + p.buildings.values.sum(), color = Color.White, fontSize = 11.sp)
+                }
+                Text(if (p.buildings.isEmpty()) "Sin instalaciones" else p.buildings.entries.joinToString("  ·  ") { it.key + " Nv." + it.value },
+                    color = Color.LightGray, fontSize = 10.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    listOf("Cuartel" to 3, "Fábrica" to 5, "Aeródromo" to 4).forEach { (name, minutes) ->
+                        Button(onClick = { buildOrder(g, p, name, minutes * 60000L, set) },
+                            enabled = p.buildings[name] == null && g.money >= 100,
+                            modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 2.dp, vertical = 5.dp)) {
+                            Text(name, fontSize = 9.sp)
+                        }
+                    }
+                }
             }
         }
         OrderList(g, clock)
