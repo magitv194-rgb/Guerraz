@@ -125,5 +125,5 @@ public class MainActivity extends Activity {
         stopService(new Intent(this, FloatingTranslatorService.class));
         start.setEnabled(true); stop.setEnabled(false); status.setText("Traductor flotante detenido.");
     }
-    @Override protected void onDestroy(){stopListening(); super.onDestroy();}
+    @Override protected void onDestroy(){ if(recognizer!=null){recognizer.destroy(); recognizer=null;} super.onDestroy(); }
 }
