@@ -88,8 +88,9 @@ public class MainActivity extends Activity {
     }
     private void showSettings(){
         new AlertDialog.Builder(this).setTitle("Configuración")
-            .setMessage("Fuente de audio: SOLO AUDIO INTERNO. La APK intentará capturar el sonido multimedia reproducido por otra aplicación. No activa la grabación del micrófono. Android exige permiso de captura de audio y confirmación del sistema cada vez que se inicia. Selecciona los idiomas en la pantalla principal.")
-            .setPositiveButton("Aceptar",null).show();
+            .setMessage("FUENTE DE AUDIO: SOLO AUDIO INTERNO. Para habilitarlo, pulsa “Autorizar audio interno”. Android mostrará su ventana oficial de confirmación; acepta con “Iniciar ahora”. No existe un interruptor permanente de Audio interno en los Ajustes del teléfono. La autorización se solicita al iniciar la captura. La APK está configurada para no elegir el micrófono como fuente. Selecciona los idiomas en la pantalla principal.")
+            .setNeutralButton("Autorizar audio interno",(dialog,which)->requestStart())
+            .setPositiveButton("Cerrar",null).show();
     }
     private class WhiteSpinnerAdapter extends ArrayAdapter<String>{
         WhiteSpinnerAdapter(String[] values){super(MainActivity.this,android.R.layout.simple_spinner_item,values);setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);}
