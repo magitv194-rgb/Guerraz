@@ -85,85 +85,45 @@ public class MainActivity extends Activity {
         public void onNothingSelected(AdapterView<?> p) {}
         public void onItemSelected(AdapterView<?> p, View v, int pos, long id) { if(listening) { stopListening(); status.setText("Idioma cambiado. Pulsa Iniciar para continuar."); } }
     }
+    private static final int REQ_OVERLAY = 42;
+    @Override protected void onResume() { super.onResume(); }
     private void requestStart() {
-        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},REQ_AUDIO); return;
+        if (!android.provider.Settings.canDrawOverlays(this)) {
+            Intent overlay = new Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                android.net.Uri.parse("package:" + getPackageName()));
+            startActivityForResult(overlay, REQ_OVERLAY);
+            status.setText("Autoriza mostrar sobre otras aplicaciones y vuelve aquí.");
+            return;
         }
-        beginListening();
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_AUDIO); return;
+        }
+        startOverlayTranslator();
+    }
+    private void startOverlayTranslator() {
+        Intent service = new Intent(this, FloatingTranslatorService.class);
+        service.putExtra("source", sourceCode());
+        service.putExtra("target", codes[target.getSelectedItemPosition()+1]);
+        if (android.os.Build.VERSION.SDK_INT >= 26) startForegroundService(service); else startService(service);
+        status.setText("Traductor flotante iniciado. Puedes abrir TikTok.");
+        start.setEnabled(false); stop.setEnabled(true);
+    }
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_OVERLAY && android.provider.Settings.canDrawOverlays(this)) {
+            status.setText("Permiso de ventana flotante concedido. Pulsa Iniciar.");
+        }
     }
     @Override public void onRequestPermissionsResult(int r, String[] p, int[] g) {
-        super.onRequestPermissionsResult(r,p,g); if(r==REQ_AUDIO && g.length>0 && g[0]==PackageManager.PERMISSION_GRANTED) beginListening();
-        else status.setText("Se necesita permiso de micrófono para traducir.");
+        super.onRequestPermissionsResult(r,p,g);
+        if(r==REQ_AUDIO && g.length>0 && g[0]==PackageManager.PERMISSION_GRANTED) {
+            if (android.provider.Settings.canDrawOverlays(this)) startOverlayTranslator();
+        } else if(r==REQ_AUDIO) status.setText("Se necesita permiso de micrófono.");
     }
     private String sourceCode() { int i=source.getSelectedItemPosition(); return codes[Math.max(0,Math.min(i,codes.length-1))]; }
-    private String speechLocale() {
-        String c=sourceCode();
-        if(c.equals("auto")) c=Locale.getDefault().toLanguageTag();
-        if(c.equals("zh-CN")) return "zh-CN"; if(c.equals("zh-TW")) return "zh-TW";
-        return c;
-    }
-    private void beginListening() {
-        if(!SpeechRecognizer.isRecognitionAvailable(this)) { status.setText("No hay servicio de reconocimiento de voz disponible."); return; }
-        if(recognizer!=null) recognizer.destroy();
-        recognizer=SpeechRecognizer.createSpeechRecognizer(this);
-        recognizer.setRecognitionListener(new RecognitionListener() {
-            public void onReadyForSpeech(Bundle b){status.setText("Escuchando… habla ahora.");}
-            public void onBeginningOfSpeech(){}
-            public void onRmsChanged(float v){}
-            public void onBufferReceived(byte[] b){}
-            public void onEndOfSpeech(){ if(listening) status.setText("Procesando voz…");}
-            public void onError(int e) {
-                if(!listening)return;
-                status.setText("No se pudo reconocer el audio (código "+e+"). Reintentando…");
-                handler.postDelayed(() -> {if(listening) launchRecognizer();},700);
-            }
-            public void onResults(Bundle b){handleResults(b,false); if(listening) handler.postDelayed(() -> {if(listening) launchRecognizer();},350);}
-            public void onPartialResults(Bundle b){handleResults(b,true);}
-            public void onEvent(int t, Bundle b){}
-        });
-        listening=true; start.setEnabled(false); stop.setEnabled(true); launchRecognizer();
-    }
-    private void launchRecognizer() {
-        if(!listening || recognizer==null)return;
-        Intent i=new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        i.putExtra(RecognizerIntent.EXTRA_LANGUAGE,speechLocale());
-        i.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS,true);
-        i.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS,1);
-        i.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE,getPackageName());
-        try { recognizer.startListening(i); } catch(Exception e){status.setText("No se pudo iniciar el micrófono: "+e.getMessage());}
-    }
-    private void handleResults(Bundle b, boolean partial) {
-        ArrayList<String> a=b.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-        if(a==null||a.isEmpty())return;
-        String s=a.get(0).trim(); if(s.isEmpty())return;
-        heard.setText(s);
-        if(!partial && !s.equals(lastFinal)) {lastFinal=s; translate(s);}
-    }
-    private void translate(String s) {
-        String selectedFrom=sourceCode(); final String from=selectedFrom.equals("auto") ? Locale.getDefault().getLanguage() : selectedFrom;
-        String to=codes[target.getSelectedItemPosition()+1];
-        status.setText("Traduciendo…");
-        new Thread(() -> {
-            String result;
-            try {
-                String q=URLEncoder.encode(s,"UTF-8");
-                String pair=URLEncoder.encode(from+"|"+to,"UTF-8");
-                URL url=new URL("https://api.mymemory.translated.net/get?q="+q+"&langpair="+pair);
-                HttpURLConnection c=(HttpURLConnection)url.openConnection(); c.setConnectTimeout(12000); c.setReadTimeout(15000);
-                c.setRequestMethod("GET");
-                InputStream in=c.getInputStream(); ByteArrayOutputStream out=new ByteArrayOutputStream();
-                byte[] buf=new byte[2048]; int n; while((n=in.read(buf))!=-1)out.write(buf,0,n);
-                JSONObject json=new JSONObject(new String(out.toByteArray(),StandardCharsets.UTF_8));
-                result=json.getJSONObject("responseData").getString("translatedText"); c.disconnect();
-            } catch(Exception e){result="Error de traducción. Comprueba tu conexión o intenta con una frase más corta.";}
-            final String translatedText=result;
-            runOnUiThread(() -> {translated.setText(translatedText); status.setText("Traducción actualizada.");});
-        }).start();
-    }
     private void stopListening() {
-        listening=false; if(recognizer!=null){recognizer.stopListening(); recognizer.destroy(); recognizer=null;}
-        start.setEnabled(true); stop.setEnabled(false); status.setText("Micrófono detenido.");
+        stopService(new Intent(this, FloatingTranslatorService.class));
+        start.setEnabled(true); stop.setEnabled(false); status.setText("Traductor flotante detenido.");
     }
     @Override protected void onDestroy(){stopListening(); super.onDestroy();}
 }
