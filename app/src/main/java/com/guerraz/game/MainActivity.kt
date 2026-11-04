@@ -1,6 +1,9 @@
 package com.guerraz.game
 
 import android.os.Bundle
+import android.content.Context
+import org.json.JSONArray
+import org.json.JSONObject
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -14,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -37,6 +41,76 @@ data class GameState(
     val lastProduction: Long = System.currentTimeMillis()
 )
 
+private object GameStore {
+    private const val PREFS = "guerra_z_save"
+    private const val KEY_STATE = "game_state"
+
+    fun save(context: Context, game: GameState) {
+        val root = JSONObject()
+        root.put("money", game.money)
+        root.put("metal", game.metal)
+        root.put("fuel", game.fuel)
+        root.put("food", game.food)
+        root.put("selected", game.selected)
+        root.put("message", game.message)
+        root.put("lastProduction", game.lastProduction)
+        val provinces = JSONArray()
+        game.provinces.forEach { p ->
+            val item = JSONObject()
+            item.put("name", p.name)
+            item.put("infantry", p.infantry)
+            item.put("tanks", p.tanks)
+            val buildings = JSONObject()
+            p.buildings.forEach { (name, level) -> buildings.put(name, level) }
+            item.put("buildings", buildings)
+            provinces.put(item)
+        }
+        root.put("provinces", provinces)
+        val orders = JSONArray()
+        game.orders.forEach { order ->
+            orders.put(JSONObject().put("province", order.province).put("item", order.item)
+                .put("finishAt", order.finishAt).put("kind", order.kind))
+        }
+        root.put("orders", orders)
+        root.put("researched", JSONArray(game.researched.toList()))
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(KEY_STATE, root.toString()).apply()
+    }
+
+    fun load(context: Context): GameState {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_STATE, null)
+            ?: return newGame()
+        return try {
+            val root = JSONObject(raw)
+            val provinceArray = root.getJSONArray("provinces")
+            val provinces = (0 until provinceArray.length()).map { index ->
+                val item = provinceArray.getJSONObject(index)
+                val buildingsJson = item.optJSONObject("buildings") ?: JSONObject()
+                val buildings = buildingsJson.keys().asSequence().associateWith { buildingsJson.optInt(it) }
+                Province(item.getString("name"), buildings, item.optInt("infantry"), item.optInt("tanks"))
+            }
+            val orderArray = root.optJSONArray("orders") ?: JSONArray()
+            val orders = (0 until orderArray.length()).map { index ->
+                val item = orderArray.getJSONObject(index)
+                Order(item.getString("province"), item.getString("item"), item.getLong("finishAt"), item.getString("kind"))
+            }
+            val techArray = root.optJSONArray("researched") ?: JSONArray()
+            val tech = (0 until techArray.length()).map { techArray.getString(it) }.toSet()
+            val selected = root.optString("selected", provinces.firstOrNull()?.name ?: names.first())
+            GameState(
+                money = root.optInt("money", 1000), metal = root.optInt("metal", 500),
+                fuel = root.optInt("fuel", 300), food = root.optInt("food", 500),
+                provinces = provinces.ifEmpty { newGame().provinces },
+                selected = selected, orders = orders, researched = tech,
+                message = root.optString("message", "Partida recuperada."),
+                lastProduction = root.optLong("lastProduction", System.currentTimeMillis())
+            )
+        } catch (_: Exception) {
+            newGame().copy(message = "No se pudo leer el guardado; se inició una partida nueva.")
+        }
+    }
+}
+
 private val names = listOf(
     "Ciudad Autónoma de Buenos Aires", "Buenos Aires", "Catamarca", "Chaco", "Chubut", "Córdoba",
     "Corrientes", "Entre Ríos", "Formosa", "Jujuy", "La Pampa", "La Rioja", "Mendoza", "Misiones",
@@ -57,7 +131,9 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun GuerraZ() {
-    var game by remember { mutableStateOf(newGame()) }
+    val context = LocalContext.current
+    var game by remember { mutableStateOf(GameStore.load(context)) }
+    LaunchedEffect(game) { GameStore.save(context, game) }
     var tab by remember { mutableStateOf("Mapa") }
     var clock by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
@@ -86,10 +162,14 @@ fun GuerraZ() {
                 game = game.copy(provinces = provinces, researched = tech, orders = game.orders - done.toSet(),
                     message = "Orden completada: " + done.joinToString { it.item })
             }
-            if (now - game.lastProduction >= 120000L) {
+            val productionCycles = ((now - game.lastProduction).coerceAtLeast(0L) / 120000L).toInt()
+            if (productionCycles > 0) {
                 val factories = game.provinces.sumOf { it.buildings["Fábrica"] ?: 0 }
-                game = game.copy(money = game.money + 50 * factories, metal = game.metal + 20 * factories,
-                    food = game.food + 15 * factories, lastProduction = now, message = "Producción nacional completada.")
+                game = game.copy(money = game.money + 50 * factories * productionCycles,
+                    metal = game.metal + 20 * factories * productionCycles,
+                    food = game.food + 15 * factories * productionCycles,
+                    lastProduction = game.lastProduction + productionCycles * 120000L,
+                    message = "Producción recuperada: $productionCycles ciclo(s).")
             }
         }
     }
