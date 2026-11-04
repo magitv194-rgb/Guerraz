@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101713"><title>GUERRA Z — Comando estratégico</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="brand-mark">GZ</span><div><strong>GUERRA Z</strong><small>COMANDO ESTRATÉGICO · 1942</small></div></div>
+  <div class="resources" id="resources"></div>
+  <div class="top-actions"><span id="clock">DÍA 1 · 08:00</span><button id="pauseBtn" class="small-btn">Ⅱ PAUSAR</button></div>
+</header>
+<main class="layout">
+  <section class="map-column">
+    <div class="map-heading"><div><span class="eyebrow">TEATRO DE OPERACIONES</span><h1>FRONTERA SUR</h1></div><div class="map-legend"><span><i class="own"></i>Aliado</span><span><i class="neutral"></i>Neutral</span><span><i class="enemy"></i>Hostil</span></div></div>
+    <div class="map-frame"><canvas id="warMap" aria-label="Mapa táctico interactivo"></canvas><div class="map-overlay"><span>SECTOR 04 / CARTOGRAFÍA TÁCTICA</span><span id="mapCoords">ESCALA 1:2.500.000</span></div><div class="map-controls"><button id="zoomIn">+</button><button id="zoomOut">−</button><button id="centerMap">⌖</button></div></div>
+    <div class="selection-bar" id="selectionPanel"></div>
+  </section>
+  <aside class="sidebar">
+    <nav class="tabs" id="tabs"><button class="tab active" data-tab="orders">ÓRDENES</button><button class="tab" data-tab="research">I+D</button><button class="tab" data-tab="diplomacy">DIPLOMACIA</button></nav>
+    <section class="tab-panel active" id="ordersPanel">
+      <div class="panel-title"><div><span class="eyebrow">CENTRO DE MANDO</span><h2>Cola de órdenes</h2></div><span class="live-dot">EN LÍNEA</span></div>
+      <div id="orderQueue" class="order-list"></div>
+      <div class="panel-title province-title"><div><span class="eyebrow">PROVINCIA SELECCIONADA</span><h2 id="provinceTitle">—</h2></div></div>
+      <div id="provinceInfo" class="province-info"></div>
+      <h3 class="subhead">CONSTRUCCIÓN</h3><div id="buildOptions" class="action-grid"></div>
+      <h3 class="subhead">DESPLIEGUE Y MOVIMIENTO</h3><div id="unitOptions" class="action-grid"></div>
+    </section>
+    <section class="tab-panel" id="researchPanel"><div class="panel-title"><div><span class="eyebrow">DOCTRINA Y DESARROLLO</span><h2>Investigación</h2></div></div><div id="researchTree"></div></section>
+    <section class="tab-panel" id="diplomacyPanel"><div class="panel-title"><div><span class="eyebrow">ASUNTOS EXTERIORES</span><h2>Diplomacia</h2></div></div><div id="diplomacyList"></div></section>
+    <footer class="sidebar-footer"><span>GUERRA Z · BUILD 0.2</span><button id="resetBtn" class="text-btn">REINICIAR CAMPAÑA</button></footer>
+  </aside>
+</main>
+<script src="map.js"></script><script src="research.js"></script><script src="game.js"></script>
+</body></html>
