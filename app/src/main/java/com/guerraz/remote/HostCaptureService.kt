@@ -19,6 +19,12 @@ class HostCaptureService : Service() {
     private var virtualDisplay: VirtualDisplay? = null
     private var imageReader: ImageReader? = null
 
+    private val projectionCallback = object : MediaProjection.Callback() {
+        override fun onStop() {
+            stopSelf()
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, 0) ?: 0
         val resultData = if (Build.VERSION.SDK_INT >= 33) {
@@ -42,6 +48,7 @@ class HostCaptureService : Service() {
 
         val manager = getSystemService(MediaProjectionManager::class.java)
         projection = manager.getMediaProjection(resultCode, resultData)
+        projection?.registerCallback(projectionCallback, null)
         val metrics = resources.displayMetrics
         val width = metrics.widthPixels.coerceAtLeast(1)
         val height = metrics.heightPixels.coerceAtLeast(1)
@@ -73,6 +80,7 @@ class HostCaptureService : Service() {
     override fun onDestroy() {
         virtualDisplay?.release()
         imageReader?.close()
+        projection?.unregisterCallback(projectionCallback)
         projection?.stop()
         virtualDisplay = null
         imageReader = null
