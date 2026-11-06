@@ -120,6 +120,17 @@ class HostCaptureService : Service() {
             output.writeInt(height)
             output.flush()
 
+            // Read authenticated touch commands independently from the video writer.
+            Thread({
+                try {
+                    while (running.get() && !peer.isClosed) {
+                        RemoteInputAccessibilityService.handleRemoteCommand(input.readUTF())
+                    }
+                } catch (_: Exception) {
+                    // Client disconnected or ended the control channel.
+                }
+            }, "Guerraz-input-channel").apply { isDaemon = true }.start()
+
             val codec = encoder ?: return
             val info = MediaCodec.BufferInfo()
             while (running.get() && !peer.isClosed) {
