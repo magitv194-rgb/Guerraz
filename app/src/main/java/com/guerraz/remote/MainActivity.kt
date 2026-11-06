@@ -8,6 +8,7 @@ import android.net.wifi.WifiManager
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
+import android.widget.FrameLayout
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -148,7 +149,30 @@ class MainActivity : ComponentActivity() {
         root.addView(pinInput)
         root.addView(actionButton("Conectar y ver pantalla") { connectToHost() })
         root.addView(statusText)
-        root.addView(videoSurface, LinearLayout.LayoutParams(-1, 0, 1f))
+        val videoContainer = FrameLayout(this)
+        videoContainer.addView(videoSurface, FrameLayout.LayoutParams(-1, -1))
+        val fullscreenButton = Button(this).apply {
+            text = "Pantalla completa"
+            setOnClickListener {
+                val immersive = window.decorView.systemUiVisibility and View.SYSTEM_UI_FLAG_FULLSCREEN != 0
+                if (immersive) {
+                    @Suppress("DEPRECATION")
+                    window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    text = "Pantalla completa"
+                } else {
+                    enterImmersiveMode()
+                    text = "Salir de pantalla completa"
+                }
+            }
+        }
+        val buttonParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            Gravity.BOTTOM or Gravity.END
+        )
+        buttonParams.setMargins(12, 12, 20, 20)
+        videoContainer.addView(fullscreenButton, buttonParams)
+        root.addView(videoContainer, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(root)
     }
 
