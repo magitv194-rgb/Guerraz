@@ -18,6 +18,7 @@ import android.view.Surface
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.net.ServerSocket
+import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.SocketException
 import java.util.concurrent.atomic.AtomicBoolean
@@ -86,12 +87,16 @@ class HostCaptureService : Service() {
                 "GuerrazHost", width, height, metrics.densityDpi,
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, inputSurface, null, null
             )
-            server = ServerSocket(StreamProtocol.PORT)
-            server!!.soTimeout = 1000
+            server = ServerSocket().apply {
+                reuseAddress = true
+                bind(InetSocketAddress(StreamProtocol.PORT))
+                soTimeout = 1000
+            }
             while (running.get()) {
                 try {
                     val socket = server!!.accept()
                     socket.tcpNoDelay = true
+                    socket.soTimeout = 10_000
                     activeSocket = socket
                     handleClient(socket, width, height)
                 } catch (_: java.net.SocketTimeoutException) {
@@ -119,6 +124,7 @@ class HostCaptureService : Service() {
             output.writeInt(width)
             output.writeInt(height)
             output.flush()
+            peer.soTimeout = 0
 
             // Read authenticated touch commands independently from the video writer.
             Thread({
