@@ -3,6 +3,8 @@ package com.guerraz.remote
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
+import android.os.Handler
+import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
 
 /**
@@ -54,7 +56,7 @@ class RemoteInputAccessibilityService : AccessibilityService() {
             if (kind != "TAP" && kind != "SWIPE") return
             val numbers = parts.drop(1).mapNotNull { it.toFloatOrNull() }
             if (numbers.size < 2 || (kind == "SWIPE" && numbers.size < 4)) return
-            instance?.dispatch(kind, numbers)
+            Handler(Looper.getMainLooper()).post { instance?.dispatch(kind, numbers) }
         }
     }
 }
