@@ -158,7 +158,22 @@ class HostCaptureService : Service() {
                     codec.releaseOutputBuffer(index, false)
                     if ((info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) break
                 } else if (index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                    // SPS/PPS are emitted by the encoder as codec-config buffers.
+                    // Send SPS/PPS from the negotiated encoder format before video frames.
+                    val outputFormat = codec.outputFormat
+                    listOf("csd-0", "csd-1").forEach { key ->
+                        if (outputFormat.containsKey(key)) {
+                            val config = outputFormat.getByteBuffer(key)?.duplicate()
+                            if (config != null && config.remaining() > 0) {
+                                val bytes = ByteArray(config.remaining())
+                                config.get(bytes)
+                                output.writeInt(bytes.size)
+                                output.writeLong(0L)
+                                output.writeInt(MediaCodec.BUFFER_FLAG_CODEC_CONFIG)
+                                output.write(bytes)
+                            }
+                        }
+                    }
+                    output.flush()
                 }
             }
         }
