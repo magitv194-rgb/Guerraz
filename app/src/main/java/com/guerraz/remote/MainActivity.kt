@@ -2,12 +2,14 @@ package com.guerraz.remote
 
 import android.app.Activity
 import android.content.Intent
+import android.provider.Settings
 import android.media.MediaCodec
 import android.media.projection.MediaProjectionManager
 import android.net.wifi.WifiManager
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
+import android.view.MotionEvent
 import android.widget.FrameLayout
 import android.view.Surface
 import android.view.SurfaceHolder
@@ -31,6 +33,7 @@ class MainActivity : ComponentActivity() {
     private var hostPin = ""
     private var clientSurface: Surface? = null
     private var clientSocket: Socket? = null
+    @Volatile private var commandWriter: DataOutputStream? = null
     private var decoder: MediaCodec? = null
     private lateinit var statusText: TextView
     private lateinit var addressInput: EditText
@@ -80,6 +83,9 @@ class MainActivity : ComponentActivity() {
         ).apply {
             addView(statusText)
             addView(actionButton("Compartir pantalla y esperar conexión") { requestScreenCapture() })
+            addView(actionButton("Activar control de gestos (Accesibilidad)") {
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            })
             addView(actionButton("Detener sesión") {
                 stopService(Intent(this@MainActivity, HostCaptureService::class.java))
                 statusText.text = "Sesión detenida"
@@ -139,6 +145,26 @@ class MainActivity : ComponentActivity() {
             setPadding(0, 10, 0, 10)
         }
         videoSurface = SurfaceView(this)
+        var downX = 0f
+        var downY = 0f
+        videoSurface.setOnTouchListener { view, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    downX = event.x / view.width.coerceAtLeast(1)
+                    downY = event.y / view.height.coerceAtLeast(1)
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    val upX = event.x / view.width.coerceAtLeast(1)
+                    val upY = event.y / view.height.coerceAtLeast(1)
+                    val distance = kotlin.math.abs(upX - downX) + kotlin.math.abs(upY - downY)
+                    if (distance > 0.025f) sendRemoteCommand("SWIPE|$downX|$downY|$upX|$upY")
+                    else sendRemoteCommand("TAP|$upX|$upY")
+                    true
+                }
+                else -> true
+            }
+        }
         videoSurface.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) { clientSurface = holder.surface }
             override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) { clientSurface = holder.surface }
@@ -202,6 +228,7 @@ class MainActivity : ComponentActivity() {
                 if (response != "OK") throw IllegalStateException("Código incorrecto o sesión no disponible.")
                 val width = input.readInt()
                 val height = input.readInt()
+                commandWriter = output
                 val videoDecoder = StreamProtocol.createDecoder(width, height, surface)
                 decoder = videoDecoder
                 runOnUiThread { statusText.text = "Conectado · ${width}×${height}" }
@@ -233,10 +260,24 @@ class MainActivity : ComponentActivity() {
                 try { decoder?.stop() } catch (_: Exception) {}
                 decoder?.release()
                 decoder = null
+                commandWriter = null
                 try { clientSocket?.close() } catch (_: Exception) {}
                 clientSocket = null
             }
         }, "Guerraz-client-stream").start()
+    }
+
+    private fun sendRemoteCommand(command: String) {
+        Thread({
+            try {
+                synchronized(this) {
+                    commandWriter?.writeUTF(command)
+                    commandWriter?.flush()
+                }
+            } catch (_: Exception) {
+                // The video connection may have closed.
+            }
+        }, "Guerraz-send-input").start()
     }
 
     @Suppress("DEPRECATION")
@@ -247,6 +288,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        commandWriter = null
         try { clientSocket?.close() } catch (_: Exception) {}
         try { decoder?.stop() } catch (_: Exception) {}
         decoder?.release()
