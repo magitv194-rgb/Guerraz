@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Guerraz</string>
+    <string name="remote_accessibility_description">Permite ejecutar los toques y deslizamientos que el usuario envía desde otro teléfono durante una sesión de Guerraz.</string>
+</resources>
