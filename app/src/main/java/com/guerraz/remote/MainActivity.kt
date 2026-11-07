@@ -78,8 +78,8 @@ class MainActivity : ComponentActivity() {
             setPadding(0, 18, 0, 18)
         }
         setContentView(baseLayout(
-            "Guerraz · Host",
-            "Conecta ambos teléfonos a la misma red Wi-Fi. El Client debe introducir la IP y el código que aparecen aquí. Android pedirá permiso para compartir la pantalla."
+            "Celular 2 · Controlado",
+            "Este es el Celular 2: el teléfono que será controlado. Comparte su pantalla y recibe gestos del Celular 1."
         ).apply {
             addView(statusText)
             addView(actionButton("Compartir pantalla y esperar conexión") { requestScreenCapture() })
@@ -170,7 +170,7 @@ class MainActivity : ComponentActivity() {
             override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) { clientSurface = holder.surface }
             override fun surfaceDestroyed(holder: SurfaceHolder) { clientSurface = null }
         })
-        val root = baseLayout("Guerraz · Client", "Vista remota por Wi-Fi local. No uses una red pública.")
+        val root = baseLayout("Celular 1 · Controlador", "Este es el Celular 1: desde aquí ves y controlas el Celular 2. Usa una red Wi-Fi de confianza.")
         root.addView(addressInput)
         root.addView(pinInput)
         root.addView(actionButton("Conectar y ver pantalla") { connectToHost() })
