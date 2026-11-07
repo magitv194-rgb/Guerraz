@@ -20,11 +20,13 @@ android {
         create("host") {
             dimension = "role"
             applicationIdSuffix = ".host"
+            resValue("string", "app_name", "Celular 2 · Controlado")
             buildConfigField("String", "APP_ROLE", "\"host\"")
         }
         create("client") {
             dimension = "role"
             applicationIdSuffix = ".client"
+            resValue("string", "app_name", "Celular 1 · Controlador")
             buildConfigField("String", "APP_ROLE", "\"client\"")
         }
     }
