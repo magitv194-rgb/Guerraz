@@ -1,6 +1,6 @@
 # Guerraz — control remoto Android
 
-Aplicación Android nativa en Kotlin con dos variantes instalables: **Host** (teléfono que comparte pantalla) y **Client** (teléfono que recibe vídeo y envía gestos).
+Aplicación Android nativa en Kotlin con dos variantes instalables: **Celular 2 · Controlado (Host)**, que comparte pantalla, y **Celular 1 · Controlador (Client)**, que recibe vídeo y envía gestos.
 
 ## Estado actual de la implementación
 
@@ -17,7 +17,7 @@ Aplicación Android nativa en Kotlin con dos variantes instalables: **Host** (te
 
 ## Cómo conectar los dos teléfonos
 
-1. Instala la variante **Host** en el teléfono que vas a controlar y la variante **Client** en el teléfono desde el que vas a mirar.
+1. Instala `Celular-2-Controlado.apk` en el teléfono que vas a controlar y `Celular-1-Controlador.apk` en el teléfono desde el que vas a manejarlo.
 2. Conecta ambos a la misma red Wi-Fi. Evita redes públicas o redes con aislamiento entre clientes.
 3. En Host, pulsa **Compartir pantalla y esperar conexión** y acepta el diálogo de Android.
 4. Host muestra su IP local y un PIN temporal. Introduce ambos en Client y pulsa **Conectar y ver pantalla**.
@@ -25,7 +25,9 @@ Aplicación Android nativa en Kotlin con dos variantes instalables: **Host** (te
 
 ## Requisitos y límites de Android
 
-- El usuario del Host debe aceptar explícitamente MediaProjection para cada sesión.
+- El usuario del Celular 2 debe aceptar explícitamente MediaProjection para cada sesión.
+- El botón **Despertar pantalla del Celular 2** intenta encender la pantalla y mostrar el bloqueo si Android permite el wake lock. No elimina PIN, patrón, contraseña ni biometría: el desbloqueo seguro debe hacerlo el usuario en el propio teléfono.
+- La captura puede quedar negra o detenerse mientras el panel está apagado o Android protege la pantalla de bloqueo. No se puede garantizar control visual completo con la pantalla apagada ni saltarse el bloqueo seguro.
 - El Host y el Client deben poder comunicarse directamente por TCP en el puerto `47832`; algunas redes Wi-Fi bloquean el tráfico entre dispositivos.
 - El PIN evita conexiones casuales no autorizadas, pero no sustituye el cifrado TLS. Usa únicamente una red de confianza; el vídeo y el canal de gestos aún no están cifrados.
 - El control de gestos utiliza AccessibilityService, que requiere activación explícita desde Ajustes. Android puede restringir gestos según el dispositivo, la pantalla protegida o la política del sistema.
