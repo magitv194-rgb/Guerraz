@@ -103,8 +103,8 @@ class HostCaptureService : Service() {
                     // Check stop flag periodically.
                 }
             }
-        } catch (_: Exception) {
-            // The persistent notification and Activity expose session state to the user.
+        } catch (e: Exception) {
+            android.util.Log.e("GuerrazHost", "No se pudo iniciar captura o servidor TCP", e)
         } finally {
             stopSelf()
         }
