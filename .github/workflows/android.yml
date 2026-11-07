@@ -22,12 +22,16 @@ jobs:
           gradle-version: '8.9'
       - name: Compilar APK Host y Client
         run: gradle --no-daemon assembleHostDebug assembleClientDebug
+      - name: Renombrar APKs para identificar cada teléfono
+        run: |
+          cp app/build/outputs/apk/client/debug/*.apk "Celular-1-Controlador.apk"
+          cp app/build/outputs/apk/host/debug/*.apk "Celular-2-Controlado.apk"
       - name: Publicar APKs
         uses: actions/upload-artifact@v4
         with:
           name: Guerraz-Android-APKs
           path: |
-            app/build/outputs/apk/host/debug/*.apk
-            app/build/outputs/apk/client/debug/*.apk
+            Celular-1-Controlador.apk
+            Celular-2-Controlado.apk
           if-no-files-found: error
           retention-days: 30
