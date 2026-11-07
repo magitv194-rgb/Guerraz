@@ -174,6 +174,10 @@ class MainActivity : ComponentActivity() {
         root.addView(addressInput)
         root.addView(pinInput)
         root.addView(actionButton("Conectar y ver pantalla") { connectToHost() })
+        root.addView(actionButton("Despertar pantalla del Samsung A32") {
+            sendRemoteCommand("WAKE")
+            Toast.makeText(this, "Solicitud de despertar enviada. Si no está conectado, conecta primero.", Toast.LENGTH_LONG).show()
+        })
         root.addView(statusText)
         val videoContainer = FrameLayout(this)
         videoContainer.addView(videoSurface, FrameLayout.LayoutParams(-1, -1))
