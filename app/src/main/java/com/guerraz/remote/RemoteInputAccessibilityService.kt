@@ -5,6 +5,7 @@ import android.accessibilityservice.GestureDescription
 import android.graphics.Path
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.view.accessibility.AccessibilityEvent
 
 /**
@@ -23,6 +24,18 @@ class RemoteInputAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         if (instance === this) instance = null
         super.onDestroy()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun wakeScreen() {
+        val power = getSystemService(POWER_SERVICE) as PowerManager
+        val wakeLock = power.newWakeLock(
+            PowerManager.SCREEN_BRIGHT_WAKE_LOCK or
+                PowerManager.ACQUIRE_CAUSES_WAKEUP or
+                PowerManager.ON_AFTER_RELEASE,
+            "Guerraz:RemoteWake"
+        )
+        wakeLock.acquire(10_000L)
     }
 
     private fun dispatch(kind: String, values: List<Float>) {
@@ -51,9 +64,12 @@ class RemoteInputAccessibilityService : AccessibilityService() {
 
         fun handleRemoteCommand(command: String) {
             val parts = command.split('|')
-            if (parts.size < 3) return
-            val kind = parts[0]
-            if (kind != "TAP" && kind != "SWIPE") return
+            val kind = parts.firstOrNull() ?: return
+            if (kind == "WAKE") {
+                Handler(Looper.getMainLooper()).post { instance?.wakeScreen() }
+                return
+            }
+            if (parts.size < 3 || (kind != "TAP" && kind != "SWIPE")) return
             val numbers = parts.drop(1).mapNotNull { it.toFloatOrNull() }
             if (numbers.size < 2 || (kind == "SWIPE" && numbers.size < 4)) return
             Handler(Looper.getMainLooper()).post { instance?.dispatch(kind, numbers) }
